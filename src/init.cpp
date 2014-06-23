@@ -627,7 +627,7 @@ bool AppInit2()
     const bool torEnabled = (mapArgs.count("-tor") && mapArgs["-tor"] != "0");
     if (torEnabled) {
         CService addrOnion;
-        addrOnion = CService("127.0.0.1", 9050);
+        addrOnion = CService("127.0.0.1", 9060);
         if (!addrOnion.IsValid())
             return InitError("Error obtaining tor local proxy address.");
         SetProxy(NET_TOR, addrOnion, 5);
