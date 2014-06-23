@@ -24,6 +24,10 @@ win32 {
     OPENSSL_LIB_PATH=D:\projects\openssl-1.0.1h
     MINIUPNPC_INCLUDE_PATH=D:\projects
     MINIUPNPC_LIB_PATH=D:\projects\miniupnpc
+    LIBEVENT_INCLUDE_PATH=D:\projects\libevent-2.0.21-stable\include
+    LIBEVENT_LIB_PATH=D:\projects\libevent-2.0.21-stable
+    ZLIB_INCLUDE_PATH=D:\projects\zlib-1.2.8
+    ZLIB_LIB_PATH=D:\projects\zlib-1.2.8
 }
 
 
@@ -367,6 +371,87 @@ SOURCES += src/qt/bitcoin.cpp src/qt/bitcoingui.cpp \
     src/zerocoin/SpendMetaData.cpp \
     src/zerocoin/ZeroTest.cpp
 
+# For tor
+SOURCES += \
+    src/tor_impl.cpp \
+    src/tor/address.c \
+    src/tor/addressmap.c \
+    src/tor/aes.c \
+    src/tor/backtrace.c \
+    src/tor/buffers.c \
+    src/tor/channel.c \
+    src/tor/channeltls.c \
+    src/tor/circpathbias.c \
+    src/tor/circuitbuild.c \
+    src/tor/circuitlist.c \
+    src/tor/circuitmux.c \
+    src/tor/circuitmux_ewma.c \
+    src/tor/circuitstats.c \
+    src/tor/circuituse.c \
+    src/tor/command.c \
+    src/tor/compat.c \
+    src/tor/compat_libevent.c \
+    src/tor/config.c \
+    src/tor/config_codedigest.c \
+    src/tor/confparse.c \
+    src/tor/connection.c \
+    src/tor/connection_edge.c \
+    src/tor/connection_or.c \
+    src/tor/container.c \
+    src/tor/control.c \
+    src/tor/cpuworker.c \
+    src/tor/crypto.c \
+    src/tor/crypto_curve25519.c \
+    src/tor/crypto_format.c \
+    src/tor/curve25519-donna.c \
+    src/tor/di_ops.c \
+    src/tor/directory.c \
+    src/tor/dirserv.c \
+    src/tor/dirvote.c \
+    src/tor/dns.c \
+    src/tor/dnsserv.c \
+    src/tor/entrynodes.c \
+    src/tor/ext_orport.c \
+    src/tor/fp_pair.c \
+    src/tor/geoip.c \
+    src/tor/hibernate.c \
+    src/tor/log.c \
+    src/tor/memarea.c \
+    src/tor/mempool.c \
+    src/tor/microdesc.c \
+    src/tor/networkstatus.c \
+    src/tor/nodelist.c \
+    src/tor/onion.c \
+    src/tor/onion_fast.c \
+    src/tor/onion_main.c \
+    src/tor/onion_ntor.c \
+    src/tor/onion_tap.c \
+    src/tor/policies.c \
+    src/tor/procmon.c \
+    src/tor/reasons.c \
+    src/tor/relay.c \
+    src/tor/rendclient.c \
+    src/tor/rendcommon.c \
+    src/tor/rendmid.c \
+    src/tor/rendservice.c \
+    src/tor/rephist.c \
+    src/tor/replaycache.c \
+    src/tor/router.c \
+    src/tor/routerlist.c \
+    src/tor/routerparse.c \
+    src/tor/routerset.c \
+    src/tor/sandbox.c \
+    src/tor/statefile.c \
+    src/tor/status.c \
+    src/tor/strlcat.c \
+    src/tor/strlcpy.c \
+    src/tor/tor_util.c \
+    src/tor/torgzip.c \
+    src/tor/tortls.c \
+    src/tor/transports.c \
+    src/tor/util_codedigest.c \
+
+
 RESOURCES += \
     src/qt/bitcoin.qrc
 
@@ -473,13 +558,15 @@ macx:QMAKE_LFLAGS_THREAD += -pthread
 macx:QMAKE_CXXFLAGS_THREAD += -pthread
 
 # Set libraries and includes at end, to use platform-defined defaults if not overridden
-INCLUDEPATH += $$BOOST_INCLUDE_PATH $$BDB_INCLUDE_PATH $$OPENSSL_INCLUDE_PATH $$QRENCODE_INCLUDE_PATH
+INCLUDEPATH += $$BOOST_INCLUDE_PATH $$BDB_INCLUDE_PATH $$OPENSSL_INCLUDE_PATH $$QRENCODE_INCLUDE_PATH $$LIBEVENT_INCLUDE_PATH
+QMAKE_LIBDIR += $$ZLIB_LIB_PATH $$LIBEVENT_LIB_PATH
 LIBS += $$join(BOOST_LIB_PATH,,-L,) $$join(BDB_LIB_PATH,,-L,) $$join(OPENSSL_LIB_PATH,,-L,) $$join(QRENCODE_LIB_PATH,,-L,)
-LIBS += -lssl -lcrypto -ldb_cxx$$BDB_LIB_SUFFIX
+LIBS += -levent -lssl -lcrypto -ldb_cxx$$BDB_LIB_SUFFIX
 # -lgdi32 has to happen after -lcrypto (see  #681)
 windows:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
 LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
 windows:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
+LIBS += -lz
 
 contains(RELEASE, 1) {
     !windows:!macx {

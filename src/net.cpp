@@ -36,6 +36,7 @@ void ThreadMapPort2(void* parg);
 #endif
 void ThreadDNSAddressSeed2(void* parg);
 bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
+void ThreadOnionSeed();
 
 
 struct LocalServiceInfo {
@@ -1849,6 +1850,13 @@ void StartNode(void* parg)
         if (!NewThread(ThreadDNSAddressSeed, NULL))
             printf("Error: NewThread(ThreadDNSAddressSeed) failed\n");
 
+    if (!GetBoolArg("-onionseed", true))
+        printf(".onion seeding disabled\n");
+    else
+    {
+        boost::thread t(boost::bind(&TraceThread<boost::function<void()> >, "onionseed", &ThreadOnionSeed));
+    }
+
     // Map ports with UPnP
     if (fUseUPnP)
         MapPort();
@@ -1975,4 +1983,44 @@ void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataSt
     }
 
     RelayInventory(inv);
+}
+
+
+// hidden service seeds
+static const char *strMainNetOnionSeed[][1] = {
+   {"f7gczaz6zoqyuna7.onion"},
+   {NULL}
+};
+
+static const char *strTestNetOnionSeed[][1] = {
+    {"f7gczaz6zoqyuna7.onion"},
+    {NULL}
+
+};
+
+void ThreadOnionSeed()
+{
+    static const char *(*strOnionSeed)[1] = fTestNet ? strTestNetOnionSeed : strMainNetOnionSeed;
+
+    int found = 0;
+
+    printf("Loading addresses from .onion seeds\n");
+
+    for (unsigned int seed_idx = 0; strOnionSeed[seed_idx][0] != NULL; seed_idx++) {
+        CNetAddr parsed;
+        if (
+            !parsed.SetSpecial(
+                strOnionSeed[seed_idx][0]
+            )
+        ) {
+            throw runtime_error("ThreadOnionSeed() : invalid .onion seed");
+        }
+        int nOneDay = 24*3600;
+        CAddress addr = CAddress(CService(parsed, GetDefaultPort()));
+        addr.nTime = GetTime() - 3*nOneDay - GetRand(4*nOneDay); // use a random age between 3 and 7 days old
+        found++;
+        addrman.Add(addr, parsed);
+    }
+
+    printf("%d addresses found from .onion seeds\n", found);
 }

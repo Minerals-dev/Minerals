@@ -11,6 +11,7 @@
 #include "ui_interface.h"
 #include "checkpoints.h"
 #include "zerocoin/ZeroTest.h"
+#include "tor_impl.h"
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/filesystem/convenience.hpp>
@@ -36,6 +37,8 @@ unsigned int nDerivationMethodIndex;
 unsigned int nMinerSleep;
 bool fUseFastIndex;
 enum Checkpoints::CPMode CheckpointsMode;
+
+void StartTor();
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -247,6 +250,7 @@ std::string HelpMessage()
         "  -connect=<ip>          " + _("Connect only to the specified node(s)") + "\n" +
         "  -seednode=<ip>         " + _("Connect to a node to retrieve peer addresses, and disconnect") + "\n" +
         "  -externalip=<ip>       " + _("Specify your own public address") + "\n" +
+        "  -onionseed             " + _("Find peers using .onion seeds (default: 1 unless -connect)") + "\n" +
         "  -onlynet=<net>         " + _("Only connect to nodes in network <net> (IPv4, IPv6 or Tor)") + "\n" +
         "  -discover              " + _("Discover own IP address (default: 1 when listening and no -externalip)") + "\n" +
         "  -irc                   " + _("Find peers using internet relay chat (default: 0)") + "\n" +
@@ -383,6 +387,11 @@ bool AppInit2()
         CheckpointsMode = Checkpoints::PERMISSIVE;
 
     nDerivationMethodIndex = 0;
+
+    if (mapArgs.count("-connect") && mapMultiArgs["-connect"].size() > 0) {
+        // when only connecting to trusted nodes, do not seed via .onion, or listen by default
+        SoftSetBoolArg("-onionseed", false);
+    }
 
     fTestNet = GetBoolArg("-testnet");
     //fTestNet = true;
@@ -615,14 +624,12 @@ bool AppInit2()
     }
 
     // -tor can override normal proxy, -notor disables tor entirely
-    if (!(mapArgs.count("-tor") && mapArgs["-tor"] == "0") && (fProxy || mapArgs.count("-tor"))) {
+    const bool torEnabled = (mapArgs.count("-tor") && mapArgs["-tor"] != "0");
+    if (torEnabled) {
         CService addrOnion;
-        if (!mapArgs.count("-tor"))
-            addrOnion = addrProxy;
-        else
-            addrOnion = CService(mapArgs["-tor"], 9050);
+        addrOnion = CService("127.0.0.1", 9050);
         if (!addrOnion.IsValid())
-            return InitError(strprintf(_("Invalid -tor address: '%s'"), mapArgs["-tor"].c_str()));
+            return InitError("Error obtaining tor local proxy address.");
         SetProxy(NET_TOR, addrOnion, 5);
         SetReachable(NET_TOR);
     }
@@ -660,6 +667,11 @@ bool AppInit2()
             return InitError(_("Failed to listen on any port. Use -listen=0 if you want this."));
     }
 
+    if (torEnabled) {
+        StartTor();
+        wait_initialized();
+    }
+
     if (mapArgs.count("-externalip"))
     {
         BOOST_FOREACH(string strAddr, mapMultiArgs["-externalip"]) {
@@ -668,6 +680,24 @@ bool AppInit2()
                 return InitError(strprintf(_("Cannot resolve -externalip address: '%s'"), strAddr.c_str()));
             AddLocal(CService(strAddr, GetListenPort(), fNameLookup), LOCAL_MANUAL);
         }
+    } else if (torEnabled) {
+        string automatic_onion;
+        filesystem::path const hostname_path = GetDefaultDataDir(
+        ) / "onion" / "hostname";
+        if (
+            !filesystem::exists(
+                hostname_path
+            )
+        ) {
+            return InitError(_("No external address found."));
+        }
+        ifstream file(
+            hostname_path.string(
+            ).c_str(
+            )
+        );
+        file >> automatic_onion;
+        AddLocal(CService(automatic_onion, GetListenPort(), fNameLookup), LOCAL_MANUAL);
     }
 
     if (mapArgs.count("-reservebalance")) // ppcoin: reserve balance amount
@@ -926,4 +956,28 @@ bool AppInit2()
 #endif
 
     return true;
+}
+
+extern "C" {
+    int tor_main(int argc, char *argv[]);
+}
+
+static void run_tor() {
+    std::string logDecl = "notice file " + GetDefaultDataDir().string() + "/tor/tor.log";
+    char *argvLogDecl = (char*) logDecl.c_str();
+
+    char* argv[] = {
+        "tor",
+        "--hush",
+        "--Log",
+        argvLogDecl
+    };
+
+    tor_main(4, argv);
+}
+
+void StartTor()
+{
+    // run tor
+    boost::thread(boost::bind(&TraceThread<void (*)()>, "tor", &run_tor));
 }
