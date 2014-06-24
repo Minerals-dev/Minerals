@@ -7,6 +7,7 @@ Build-Depends: debhelper (>= 5),
 	libdb++-dev,
 	libboost-system-dev, libboost-filesystem-dev, libboost-program-options-dev, libboost-thread-dev,
 	qt5-default, qttools5-dev-tools,
+	libevent-dev,
 	desktop-file-utils, 
 Standards-Version: 3.8.3
 Homepage: http://minerals.pro/
